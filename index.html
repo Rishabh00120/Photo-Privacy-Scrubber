@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo Privacy Scrubber — Browser-Only Image Metadata Stripper</title>
+  <meta name="description" content="Local, zero-upload tool that inspects EXIF, GPS, camera data and losslessly scrubs metadata before sharing photos.">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Screen-reader dedicated announcements -->
+  <div id="aria-live-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <div class="brand-logo" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Photo Privacy Scrubber</h1>
+          <p class="brand-tagline">100% Client-Side EXIF, GPS &amp; Metadata Inspection and Removal</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="local-badge" title="All processing occurs in browser memory. No data is transmitted.">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Local Memory Only
+        </span>
+        <button type="button" id="theme-toggle-btn" class="btn btn-secondary btn-sm theme-toggle-btn" aria-label="Toggle light or dark theme" title="Toggle theme (Light / Dark)">
+          <span class="theme-icon-sun" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </span>
+          <span class="theme-icon-moon" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+          <span id="theme-label" class="theme-label">Theme</span>
+        </button>
+        <button type="button" id="open-education-btn" class="btn btn-secondary btn-sm" aria-haspopup="dialog">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Privacy Guide
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-main">
+
+    <!-- 1. Primary Upload & Drop Area -->
+    <section class="upload-section" aria-labelledby="upload-heading">
+      <div id="drop-zone" class="upload-card">
+        <input type="file" id="file-input" multiple accept="image/*" class="sr-only" aria-label="Select photos for metadata scrubbing">
+        <div class="upload-icon-wrapper" aria-hidden="true">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <h2 id="upload-heading" class="upload-title">Drop or select one or many images</h2>
+        <p class="upload-subtitle">Supports JPEG (with lossless EXIF stripping), PNG chunks, WebP containers, and Canvas fallback.</p>
+        <div class="upload-button-row">
+          <label for="file-input" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Choose Photos
+          </label>
+          <button type="button" id="load-sample-btn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+            </svg>
+            Load Test Fixture (GPS EXIF)
+          </button>
+        </div>
+        <p class="upload-notice">
+          <strong>Zero server uploads:</strong> Images are processed exclusively in your browser session using typed arrays.
+        </p>
+      </div>
+    </section>
+
+    <!-- 2. Batch Toolbar (Visible when images exist) -->
+    <section id="batch-toolbar" class="batch-toolbar" style="display: none;" aria-label="Batch operations">
+      <div class="batch-stats">
+        <span>Total images: <strong id="stat-total">0</strong></span>
+        <span>Cleaned: <strong id="stat-cleaned" style="color: var(--color-safe-green);">0</strong></span>
+        <span>Pending: <strong id="stat-pending">0</strong></span>
+      </div>
+      <div class="batch-actions">
+        <button type="button" id="batch-scrub-btn" class="btn btn-primary btn-sm">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          Scrub All Pending
+        </button>
+        <button type="button" id="batch-download-zip-btn" class="btn btn-secondary btn-sm" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Cleaned (ZIP)
+        </button>
+        <button type="button" id="clear-gallery-btn" class="btn btn-outline btn-sm">
+          Clear All
+        </button>
+      </div>
+      <div id="batch-progress-wrapper" class="batch-progress-container" style="display: none;">
+        <div id="batch-progress-bar" class="batch-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+    </section>
+
+    <!-- 3. Workspace Grid (Gallery + Detail + Before/After) -->
+    <div id="workspace-container" class="workspace-grid" style="display: none;">
+
+      <!-- Left Column: Gallery Sidebar -->
+      <aside class="gallery-pane" aria-labelledby="gallery-heading">
+        <div class="pane-header">
+          <h2 id="gallery-heading" class="pane-title">Imported Images</h2>
+          <span id="gallery-count-badge" class="tag-count">0 items</span>
+        </div>
+        <div id="gallery-list" class="gallery-list" role="listbox" aria-label="Imported photos list">
+          <!-- Dynamically populated -->
+        </div>
+      </aside>
+
+      <!-- Right Column: Detail, Privacy Risk, Scrub Controls, Comparison, Metadata Tables -->
+      <div class="detail-pane">
+
+        <!-- Prominent Privacy Risk Summary -->
+        <section id="risk-banner" class="risk-banner" aria-labelledby="risk-summary-heading">
+          <div class="risk-banner-content">
+            <div id="risk-badge-placeholder"></div>
+            <h3 id="risk-summary-heading" class="risk-summary-title">Privacy Assessment</h3>
+            <ul id="risk-reasons-list" class="risk-reasons-list">
+              <!-- Dynamically populated -->
+            </ul>
+          </div>
+          <div class="risk-banner-actions">
+            <button type="button" id="open-editor-btn" class="btn btn-outline btn-sm" title="Manually blur faces or license plates">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              Blur / Crop Tool
+            </button>
+          </div>
+        </section>
+
+        <!-- Scrubbing Controls & Primary Action -->
+        <section class="controls-card" aria-labelledby="controls-heading">
+          <div class="controls-header">
+            <h3 id="controls-heading" class="controls-title">Cleaning Configuration</h3>
+            <span class="tag-count">Applies to selected image or batch</span>
+          </div>
+
+          <div class="options-grid">
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="radio" name="scrub-mode" value="lossless" checked id="mode-lossless">
+                <strong>Mode A: Lossless Metadata Stripping (Recommended)</strong>
+              </label>
+              <p class="option-help">Direct byte-level removal of EXIF, XMP, IPTC segments. Preserves original compressed image pixels with 0% quality loss.</p>
+            </div>
+
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="radio" name="scrub-mode" value="reencode" id="mode-reencode">
+                <strong>Mode B: Re-encode via Canvas</strong>
+              </label>
+              <p class="option-help">Decodes and redraws pixels on Canvas. Completely purges any nested/unsupported metadata. May alter compression slightly.</p>
+            </div>
+          </div>
+
+          <div class="options-grid" style="border-top: 1px dashed var(--color-border); padding-top: 0.85rem;">
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="opt-preserve-orientation" checked>
+                <span>Preserve orientation display</span>
+              </label>
+              <p class="option-help">Retains only a minimal, clean orientation tag so portrait photos don't rotate sideways, without leaking any GPS or device info.</p>
+            </div>
+
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="opt-keep-icc" checked>
+                <span>Keep ICC color profile</span>
+              </label>
+              <p class="option-help">Retains standard color gamut data for accurate monitor display while removing personal metadata.</p>
+            </div>
+          </div>
+
+          <div class="controls-actions-bar">
+            <div>
+              <span id="active-filename-display" style="font-weight: 600; font-size: 0.85rem;"></span>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="scrub-current-btn" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                Scrub Metadata Now
+              </button>
+              <button type="button" id="download-current-btn" class="btn btn-secondary" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Cleaned
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Before & After Comparison Area -->
+        <section class="comparison-card" aria-labelledby="comparison-heading">
+          <div class="comparison-header">
+            <h3 id="comparison-heading" class="controls-title">Before &amp; After Inspection</h3>
+            <span id="scrub-status-label" class="tag-count">Awaiting Scrub</span>
+          </div>
+
+          <div class="comparison-grid">
+            <!-- Original Figure -->
+            <figure class="comparison-figure">
+              <div class="preview-img-wrapper">
+                <img id="before-img" class="preview-img" alt="Original photo with original metadata">
+              </div>
+              <figcaption>
+                <div class="fig-title">
+                  <span>Original Photo</span>
+                  <span id="before-size" class="tag-count">0 KB</span>
+                </div>
+                <div class="fig-specs">
+                  <span id="before-meta-count">Metadata detected: 0 fields</span>
+                  <span id="before-dimensions">Dimensions: -</span>
+                </div>
+              </figcaption>
+            </figure>
+
+            <!-- Cleaned Figure -->
+            <figure class="comparison-figure">
+              <div class="preview-img-wrapper">
+                <img id="after-img" class="preview-img" alt="Cleaned photo after metadata scrubbing">
+              </div>
+              <figcaption>
+                <div class="fig-title">
+                  <span>Cleaned Result</span>
+                  <span id="after-size" class="tag-count" style="color: var(--color-safe-green);">-</span>
+                </div>
+                <div class="fig-specs">
+                  <span id="after-meta-status">Status: Original untouched</span>
+                  <span id="after-savings">Size difference: -</span>
+                </div>
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <!-- Detailed Metadata Inspection Panel -->
+        <section id="inspection-section" class="inspection-card" aria-labelledby="inspection-heading">
+          <div class="inspection-header">
+            <h3 id="inspection-heading" class="controls-title">Detected Metadata &amp; Location Details</h3>
+            <span id="metadata-total-tag" class="tag-count">0 tags</span>
+          </div>
+
+          <!-- Offline SVG Location Radar Card -->
+          <div id="offline-location-container"></div>
+
+          <!-- Categorized Semantic Tables -->
+          <div id="metadata-tables-container">
+            <p class="empty-notice">Select an image to inspect its EXIF markers and binary structure.</p>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Educational Dialog Modal -->
+  <dialog id="educational-dialog" aria-labelledby="edu-title">
+    <div class="modal-header">
+      <h2 id="edu-title" class="modal-title">EXIF Metadata &amp; Privacy Guide</h2>
+      <button type="button" id="close-edu-dialog-btn" class="btn btn-outline btn-sm" aria-label="Close dialog">&times;</button>
+    </div>
+    <div class="modal-body">
+      <section>
+        <h3 class="modal-section-title">What is EXIF Metadata?</h3>
+        <p>
+          Exchangeable Image File Format (EXIF) is a standard specification embedded inside image files (primarily JPEG, PNG, and WebP). Whenever a smartphone or digital camera snaps a photo, it automatically records technical, geographic, and temporal parameters into binary headers.
+        </p>
+      </section>
+
+      <section>
+        <h3 class="modal-section-title">Why GPS Coordinates Pose Severe Privacy Risks</h3>
+        <p>
+          GPS IFD tags embed precise latitude, longitude, and altitude down to fractions of a second. If you share an unscrubbed photo taken at home, school, or work, anyone who downloads the file can extract your exact physical address and pin it to a map.
+        </p>
+      </section>
+
+      <section>
+        <h3 class="modal-section-title">Camera Details, Timestamps &amp; Unique IDs</h3>
+        <p>
+          Tags such as <code>DateTimeOriginal</code>, <code>Make</code>, <code>Model</code>, <code>BodySerialNumber</code>, and <code>ImageUniqueID</code> disclose your device hardware, routine, and can be used to link separate accounts across online marketplaces, social networks, and forums.
+        </p>
+      </section>
+
+      <section>
+        <h3 class="modal-section-title">Lossless Byte-Stripping vs Canvas Re-encoding</h3>
+        <p>
+          <strong>Mode A (Lossless):</strong> Directly parses the file's binary container (JPEG markers, PNG chunks, WebP RIFF) and deletes metadata blocks without touching the compressed image scan data. Zero compression artifacts, identical image quality.
+        </p>
+        <p style="margin-top: 0.5rem;">
+          <strong>Mode B (Re-encode):</strong> Decodes the image onto an HTML5 Canvas and re-encodes a fresh file. This guarantees 100% removal of obscure or malformed metadata, but may slightly recompress pixels.
+        </p>
+      </section>
+
+      <section>
+        <h3 class="modal-section-title">Understanding Risk Ratings</h3>
+        <p>
+          • <strong>HIGH:</strong> Exact GPS coordinates or sensitive owner/serial identifiers were detected.<br>
+          • <strong>MEDIUM:</strong> Capture timestamps, camera device models, or software details were found.<br>
+          • <strong>LOW:</strong> No sensitive fields were found among the inspected tags. Note: Low risk reflects the scope of inspection and does not guarantee the absence of obscure steganographic data.
+        </p>
+      </section>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="confirm-edu-dialog-btn" class="btn btn-primary">Understood</button>
+    </div>
+  </dialog>
+
+  <!-- Manual Blur & Crop Tool Dialog -->
+  <dialog id="edit-tool-dialog" aria-labelledby="editor-title" style="max-width: 820px;">
+    <div class="modal-header">
+      <h2 id="editor-title" class="modal-title">Manual Blur &amp; Redaction Tool</h2>
+      <button type="button" id="close-editor-dialog-btn" class="btn btn-outline btn-sm" aria-label="Close editor">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.8rem; color: var(--color-navy-600);">
+        Click and drag across sensitive regions (faces, license plates, house numbers) to apply a privacy blur. Multiple regions supported.
+      </p>
+      <div class="editor-toolbar">
+        <label for="blur-intensity-slider" style="font-size: 0.8rem; font-weight: 600;">Blur Intensity:</label>
+        <input type="range" id="blur-intensity-slider" min="5" max="35" value="15" style="width: 140px;">
+        <button type="button" id="undo-blur-btn" class="btn btn-secondary btn-sm">Undo Last Box</button>
+        <button type="button" id="reset-editor-btn" class="btn btn-outline btn-sm">Reset</button>
+      </div>
+      <div class="editor-canvas-container">
+        <canvas id="editor-canvas"></canvas>
+      </div>
+      <p style="font-size: 0.72rem; color: var(--color-navy-500); margin-top: 0.5rem;">
+        Note: Applying visual redaction re-encodes pixels via Canvas, simultaneously purging all embedded metadata.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="cancel-editor-btn" class="btn btn-secondary">Cancel</button>
+      <button type="button" id="save-redacted-btn" class="btn btn-primary">Apply &amp; Replace Cleaned Copy</button>
+    </div>
+  </dialog>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- App Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>Photo Privacy Scrubber &mdash; Browser-Only Cybersecurity Utility</span>
+      <span>Original files remain untouched. Every cleaning operation produces a separate output file.</span>
+    </div>
+  </footer>
+
+  <!-- Scripts in dependency order -->
+  <script src="js/exif.js"></script>
+  <script src="js/jpeg.js"></script>
+  <script src="js/scrub.js"></script>
+  <script src="js/gallery.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
